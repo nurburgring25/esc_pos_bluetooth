@@ -5,155 +5,77 @@
  * Copyright (c) 2019-2020. All rights reserved.
  * See LICENSE for distribution and usage details.
  */
-
 import 'dart:async';
-import 'dart:io';
-import 'package:esc_pos_utils/esc_pos_utils.dart';
-import 'package:rxdart/rxdart.dart';
-import 'package:flutter_bluetooth_basic/flutter_bluetooth_basic.dart';
+
+import 'package:collection/collection.dart';
+import 'package:esc_pos_bluetooth/src/bluetooth_scan_handler.dart';
+import 'package:esc_pos_bluetooth/src/print_job.dart';
+import 'package:esc_pos_bluetooth/src/print_job_options.dart';
+import 'package:esc_pos_bluetooth/src/printer_bluetooth.dart';
+import 'package:esc_pos_bluetooth/src/printer_service.dart';
+
 import './enums.dart';
-
-/// Bluetooth printer
-class PrinterBluetooth {
-  PrinterBluetooth(this._device);
-  final BluetoothDevice _device;
-
-  String? get name => _device.name;
-  String? get address => _device.address;
-  int? get type => _device.type;
-}
 
 /// Printer Bluetooth Manager
 class PrinterBluetoothManager {
-  final BluetoothManager _bluetoothManager = BluetoothManager.instance;
-  bool _isPrinting = false;
-  bool _isConnected = false;
-  StreamSubscription? _scanResultsSubscription;
-  StreamSubscription? _isScanningSubscription;
-  PrinterBluetooth? _selectedPrinter;
+  final BluetoothScanHandler _bluetoothScanHandler = BluetoothScanHandler();
+  final Map<String, PrinterService> _printerServices = {};
 
-  final BehaviorSubject<bool> _isScanning = BehaviorSubject.seeded(false);
-  Stream<bool> get isScanningStream => _isScanning.stream;
+  PrinterService? get _defaultPrinterService => _printerServices.values.firstWhereOrNull((element) => element.defaultPrintService);
 
-  final BehaviorSubject<List<PrinterBluetooth>> _scanResults =
-      BehaviorSubject.seeded([]);
-  Stream<List<PrinterBluetooth>> get scanResults => _scanResults.stream;
+  Stream<List<PrinterBluetooth>> get scanResults => _bluetoothScanHandler.scanResults;
 
-  Future _runDelayed(int seconds) {
-    return Future<dynamic>.delayed(Duration(seconds: seconds));
+  Stream<bool> get isScanningStream => _bluetoothScanHandler.isScanningStream;
+
+  Future<void> startScan(Duration timeout) async {
+    return _bluetoothScanHandler.startScan(timeout);
   }
 
-  void startScan(Duration timeout) async {
-    _scanResults.add(<PrinterBluetooth>[]);
-
-    _bluetoothManager.startScan(timeout: timeout);
-
-    _scanResultsSubscription = _bluetoothManager.scanResults.listen((devices) {
-      _scanResults.add(devices.map((d) => PrinterBluetooth(d)).toList());
-    });
-
-    _isScanningSubscription =
-        _bluetoothManager.isScanning.listen((isScanningCurrent) async {
-      // If isScanning value changed (scan just stopped)
-      if (_isScanning.value! && !isScanningCurrent) {
-        _scanResultsSubscription!.cancel();
-        _isScanningSubscription!.cancel();
-      }
-      _isScanning.add(isScanningCurrent);
-    });
+  Future<void> stopScan() async {
+    return _bluetoothScanHandler.stopScan();
   }
 
-  void stopScan() async {
-    await _bluetoothManager.stopScan();
-  }
-
-  void selectPrinter(PrinterBluetooth printer) {
-    _selectedPrinter = printer;
-  }
-
-  Future<PosPrintResult> writeBytes(
-    List<int> bytes, {
-    int chunkSizeBytes = 20,
-    int queueSleepTimeMs = 20,
-  }) async {
-    final Completer<PosPrintResult> completer = Completer();
-
-    const int timeout = 5;
-    if (_selectedPrinter == null) {
-      return Future<PosPrintResult>.value(PosPrintResult.printerNotSelected);
-    } else if (_isScanning.value!) {
-      return Future<PosPrintResult>.value(PosPrintResult.scanInProgress);
-    } else if (_isPrinting) {
-      return Future<PosPrintResult>.value(PosPrintResult.printInProgress);
+  /// Add a printer and return its unique identifier (for now multiple printers are not supported because of the BluetoothManager)
+  String addPrinter(final PrinterBluetooth printer, {bool defaultPrinter = true, int disconnectAfterMs = 10000}) {
+    final address = printer.address;
+    if (address == null) {
+      throw Exception("Printer address is null");
+    } else if (_printerServices.containsKey(address)) {
+      return address;
     }
 
-    _isPrinting = true;
-
-    // We have to rescan before connecting, otherwise we can connect only once
-    await _bluetoothManager.startScan(timeout: Duration(seconds: 1));
-    await _bluetoothManager.stopScan();
-
-    // Connect
-    await _bluetoothManager.connect(_selectedPrinter!._device);
-
-    // Subscribe to the events
-    _bluetoothManager.state.listen((state) async {
-      switch (state) {
-        case BluetoothManager.CONNECTED:
-          // To avoid double call
-          if (!_isConnected) {
-            final len = bytes.length;
-            List<List<int>> chunks = [];
-            for (var i = 0; i < len; i += chunkSizeBytes) {
-              var end = (i + chunkSizeBytes < len) ? i + chunkSizeBytes : len;
-              chunks.add(bytes.sublist(i, end));
-            }
-
-            for (var i = 0; i < chunks.length; i += 1) {
-              await _bluetoothManager.writeData(chunks[i]);
-              sleep(Duration(milliseconds: queueSleepTimeMs));
-            }
-
-            completer.complete(PosPrintResult.success);
-          }
-          // TODO sending disconnect signal should be event-based
-          _runDelayed(3).then((dynamic v) async {
-            await _bluetoothManager.disconnect();
-            _isPrinting = false;
-          });
-          _isConnected = true;
-          break;
-        case BluetoothManager.DISCONNECTED:
-          _isConnected = false;
-          break;
-        default:
-          break;
-      }
-    });
-
-    // Printing timeout
-    _runDelayed(timeout).then((dynamic v) async {
-      if (_isPrinting) {
-        _isPrinting = false;
-        completer.complete(PosPrintResult.timeout);
-      }
-    });
-
-    return completer.future;
-  }
-
-  Future<PosPrintResult> printTicket(
-    List<int> bytes, {
-    int chunkSizeBytes = 20,
-    int queueSleepTimeMs = 20,
-  }) async {
-    if (bytes.isEmpty) {
-      return Future<PosPrintResult>.value(PosPrintResult.ticketEmpty);
+    if (defaultPrinter) {
+      _printerServices.forEach((key, value) => value.defaultPrintService = false);
     }
-    return writeBytes(
-      bytes,
-      chunkSizeBytes: chunkSizeBytes,
-      queueSleepTimeMs: queueSleepTimeMs,
+
+    _printerServices[address] = PrinterService(
+      printer,
+      _bluetoothScanHandler,
+      defaultPrintService: defaultPrinter,
+      disconnectAfterMs: disconnectAfterMs,
     );
+
+    return address;
+  }
+
+  void removePrinter(final PrinterBluetooth printer) {
+    removePrinterById(printer.address);
+  }
+
+  void removePrinterById(final String? printerId) {
+    if (printerId != null) {
+      _printerServices.remove(printerId);
+    }
+  }
+
+  Completer<PosPrintResult> printData(List<int> bytes, {String? printerId, PrintJobOptions options = const PrintJobOptions()}) {
+    final printerService = printerId != null ? _printerServices[printerId] : _defaultPrinterService;
+    if (printerService == null) {
+      throw Exception("No printer found or not default printer set");
+    }
+
+    final printJob = PrintJob(bytes, options);
+    printerService.addJob(printJob);
+    return printJob.completer;
   }
 }

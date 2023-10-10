@@ -9,3 +9,5 @@ library esc_pos_bluetooth;
 
 export './src/enums.dart';
 export './src/printer_bluetooth_manager.dart';
+export './src/print_job_options.dart';
+export './src/printer_bluetooth.dart';
