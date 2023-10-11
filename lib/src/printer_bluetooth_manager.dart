@@ -68,6 +68,11 @@ class PrinterBluetoothManager {
     }
   }
 
+  bool isPrinting({String? printerId}) {
+    final printerService = printerId != null ? _printerServices[printerId] : _defaultPrinterService;
+    return printerService != null && printerService.isPrinting;
+  }
+
   Completer<PosPrintResult> printData(List<int> bytes, {String? printerId, PrintJobOptions options = const PrintJobOptions()}) {
     final printerService = printerId != null ? _printerServices[printerId] : _defaultPrinterService;
     if (printerService == null) {

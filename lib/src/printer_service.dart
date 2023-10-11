@@ -16,7 +16,7 @@ class PrinterService {
 
   PrinterService(this._printer, this._bluetoothScanHandler, {this.defaultPrintService = false, this.disconnectAfterMs = 10000});
 
-  bool get _isPrinting => _currentJob != null;
+  bool get isPrinting => _currentJob != null;
 
   Future<void> addJob(final PrintJob job) async {
     _printQueue.add(job);
@@ -57,8 +57,8 @@ class PrinterService {
   }
 
   Future<void> _printNextJob() async {
-    print("_printNextJob: IsPrinting = $_isPrinting, WaitingJob = ${_printQueue.length}");
-    if (_printQueue.isNotEmpty && !_isPrinting) {
+    print("_printNextJob: IsPrinting = $isPrinting, WaitingJob = ${_printQueue.length}");
+    if (_printQueue.isNotEmpty && !isPrinting) {
       try {
         final job = _printQueue.removeFirst();
         _currentJob = job;
