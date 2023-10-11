@@ -27,7 +27,7 @@ class PrinterService {
     if (job == null || job.bytes.isEmpty) {
       return PosPrintResult.success;
     } else if (_bluetoothScanHandler.isScanning) {
-      throw Exception("Cannot print while scanning");
+      await _bluetoothScanHandler.stopScan();
     }
 
     Timer? timeoutTimer;
