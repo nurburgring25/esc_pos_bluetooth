@@ -52,7 +52,7 @@ class PrinterService {
       }
     }
 
-    _bluetoothScanHandler.disconnectIn(Duration(seconds: disconnectAfterMs)); // if no other print job is added, disconnect in 5 seconds
+    _bluetoothScanHandler.disconnectIn(Duration(milliseconds: disconnectAfterMs)); // if no other print job is added, disconnect in 5 seconds
     return PosPrintResult.success;
   }
 
