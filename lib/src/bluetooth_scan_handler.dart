@@ -44,21 +44,28 @@ class BluetoothScanHandler {
     await _bluetoothManager.stopScan();
   }
 
-  void disconnectIn(final Duration duration) async {
-    disconnecting = Timer(duration, () async {
+  Future<void> disconnectImmediately() async {
+    _isConnectedTo = null;
+    _stateSubscription?.cancel();
+    try {
       await _bluetoothManager.disconnect();
-      _isConnectedTo = null;
-    });
+    } catch (e) {
+      print(e);
+    }
+  }
+
+  void disconnectIn(final Duration duration) {
+    disconnecting = Timer(duration, () => disconnectImmediately());
   }
 
   /// Connect and return a write function to send bytes
   Future<Future Function(List<int> chunk)> connect(final PrinterBluetooth printer) async {
-    final currentPrinter = _isConnectedTo;
-    if (currentPrinter != null && currentPrinter.device.address == printer.device.address) {
+    if (_isConnectedTo?.device.address == printer.device.address) {
       disconnecting?.cancel();
-      return (List<int> chunk) {
-        return _bluetoothManager.writeData(chunk);
-      };
+      return (List<int> chunk) => _bluetoothManager.writeData(chunk);
+    } else if (disconnecting != null) {
+      disconnecting?.cancel();
+      await disconnectImmediately();
     }
 
     // We have to rescan before connecting, otherwise we can connect only once
@@ -69,7 +76,7 @@ class BluetoothScanHandler {
     final Completer onReady = Completer();
 
     // start timeout
-    final timer = Timer(const Duration(seconds: 10), () {
+    final timeoutTimer = Timer(const Duration(seconds: 10), () {
       if (!onReady.isCompleted) {
         onReady.completeError("Timeout");
       }
@@ -77,13 +84,16 @@ class BluetoothScanHandler {
 
     _stateSubscription?.cancel();
     _stateSubscription = _bluetoothManager.state.listen((event) {
-      print(event);
       switch (event) {
         case BluetoothManager.CONNECTED:
           onReady.complete();
           break;
         case BluetoothManager.DISCONNECTED:
-          onReady.completeError("Disconnected");
+          if (!onReady.isCompleted) {
+            onReady.completeError("Disconnected");
+          } else {
+            disconnectImmediately();
+          }
           break;
         default:
           break;
@@ -92,13 +102,11 @@ class BluetoothScanHandler {
 
     try {
       await onReady.future;
-      _stateSubscription?.cancel();
-      timer.cancel();
+      timeoutTimer.cancel();
       _isConnectedTo = printer;
     } catch (e) {
       print(e);
-      _stateSubscription?.cancel();
-      timer.cancel();
+      timeoutTimer.cancel();
       _isConnectedTo = null;
       rethrow;
     }

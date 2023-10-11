@@ -68,6 +68,10 @@ class PrinterBluetoothManager {
     }
   }
 
+  Future<void> disconnectPrinter() {
+    return _bluetoothScanHandler.disconnectImmediately();
+  }
+
   bool isPrinting({String? printerId}) {
     final printerService = printerId != null ? _printerServices[printerId] : _defaultPrinterService;
     return printerService != null && printerService.isPrinting;
