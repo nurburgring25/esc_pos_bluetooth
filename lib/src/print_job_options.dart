@@ -12,5 +12,15 @@ class PrintJobOptions {
     this.maxRetries = 0,
     this.timeoutMs = 10000,
   });
+
+  PrintJobOptions copyWithoutQuantity(){
+    return PrintJobOptions(
+        chunkSizeBytes: this.chunkSizeBytes,
+        queueSleepTimeMs: this.queueSleepTimeMs,
+        timeoutMs: this.timeoutMs,
+        maxRetries: this.maxRetries,
+        quantity: 1
+    );
+  }
 }
 

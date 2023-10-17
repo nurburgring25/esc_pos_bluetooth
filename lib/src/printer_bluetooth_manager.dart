@@ -77,14 +77,19 @@ class PrinterBluetoothManager {
     return printerService != null && printerService.isPrinting;
   }
 
-  Completer<PosPrintResult> printData(List<int> bytes, {String? printerId, PrintJobOptions options = const PrintJobOptions()}) {
+  List<PrintJob> printData(List<int> bytes, {String? printerId, PrintJobOptions options = const PrintJobOptions()}) {
     final printerService = printerId != null ? _printerServices[printerId] : _defaultPrinterService;
     if (printerService == null) {
       throw Exception("No printer found or not default printer set");
     }
 
-    final printJob = PrintJob(bytes, options);
-    printerService.addJob(printJob);
-    return printJob.completer;
+    final List<PrintJob> printJobs = [];
+    for(int i = 0; i < options.quantity; i++) {
+      final printJob = PrintJob(bytes, options.copyWithoutQuantity());
+      printerService.addJob(printJob);
+      printJobs.add(printJob);
+    }
+
+    return printJobs;
   }
 }
