@@ -1,4 +1,6 @@
 class PrintJobOptions {
+  static const AUTO_SLEEP_TIME = -1;
+
   final int chunkSizeBytes;
   final int queueSleepTimeMs;
   final int quantity;
@@ -7,7 +9,7 @@ class PrintJobOptions {
 
   const PrintJobOptions({
     this.chunkSizeBytes = 20,
-    this.queueSleepTimeMs = 20,
+    this.queueSleepTimeMs = AUTO_SLEEP_TIME,
     this.quantity = 1,
     this.maxRetries = 0,
     this.timeoutMs = 10000,

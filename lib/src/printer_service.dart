@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:collection/collection.dart';
 import 'package:esc_pos_bluetooth/esc_pos_bluetooth.dart';
@@ -47,9 +48,11 @@ class PrinterService {
 
     for (int i = 0; i < chunks.length; i += 1) {
       await writer(chunks[i]);
-      if (job.options.queueSleepTimeMs > 0) {
-        await Future.delayed(Duration(milliseconds: job.options.queueSleepTimeMs));
-      }
+    }
+
+    if (job.options.queueSleepTimeMs != 0) {
+      final waitTime = job.options.queueSleepTimeMs == PrintJobOptions.AUTO_SLEEP_TIME ? min(4000, max(1000, len ~/ 5.0)) : job.options.queueSleepTimeMs;
+      await Future.delayed(Duration(milliseconds: waitTime));
     }
 
     _bluetoothScanHandler.disconnectIn(Duration(milliseconds: disconnectAfterMs)); // if no other print job is added, disconnect in 5 seconds
