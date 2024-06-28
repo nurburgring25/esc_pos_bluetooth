@@ -23,6 +23,8 @@ class BluetoothScanHandler {
   bool get isScanning => _isScanning.value ?? false;
 
   Future<void> startScan(final Duration timeout) async {
+    final Completer<void> scanCompleter = Completer<void>();
+
     _scanResults.add(<PrinterBluetooth>[]);
     _bluetoothManager.startScan(timeout: timeout);
 
@@ -35,9 +37,19 @@ class BluetoothScanHandler {
       if (isScanning && !isScanningCurrent) {
         _scanResultsSubscription!.cancel();
         _isScanningSubscription!.cancel();
+        scanCompleter.complete();
       }
       _isScanning.add(isScanningCurrent);
     });
+
+    Future.delayed(timeout + Duration(milliseconds: 500), () {
+      if (!scanCompleter.isCompleted) {
+        scanCompleter.complete();
+      }
+    });
+
+    // Await the completer to ensure the scan is complete
+    await scanCompleter.future;
   }
 
   Future<void> stopScan() async {
@@ -86,7 +98,9 @@ class BluetoothScanHandler {
     _stateSubscription = _bluetoothManager.state.listen((event) {
       switch (event) {
         case BluetoothManager.CONNECTED:
-          onReady.complete();
+          if (!onReady.isCompleted) {
+            onReady.complete();
+          }
           break;
         case BluetoothManager.DISCONNECTED:
           if (!onReady.isCompleted) {
