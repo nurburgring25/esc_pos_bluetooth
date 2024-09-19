@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:esc_pos_bluetooth/src/printer_bluetooth.dart';
-import 'package:flutter_bluetooth_basic_updated/flutter_bluetooth_basic.dart';
+import 'package:flutter_bluetooth_basic/flutter_bluetooth_basic.dart';
 import 'package:rxdart/rxdart.dart';
 
 class BluetoothScanHandler {
