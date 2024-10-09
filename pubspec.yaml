@@ -11,7 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_bluetooth_basic:
-    path: /Volumes/MI3-SSD/project/flutter/printer/flutter_bluetooth_basic
+    git:
+      url: https://github.com/nurburgring25/flutter_bluetooth_basic.git
 
 dev_dependencies:
   flutter_test:
