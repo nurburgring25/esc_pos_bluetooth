@@ -10,12 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  rxdart: ^0.27.7
-  esc_pos_utils_updated: ^1.1.1
   flutter_bluetooth_basic:
-    git:
-      url: https://github.com/freres-toque/flutter_bluetooth_basic
-      ref: 890a67b74809c37f6acda66ed08e7db223d91294
+    path: /Volumes/MI3-SSD/project/flutter/printer/flutter_bluetooth_basic
 
 dev_dependencies:
   flutter_test:
